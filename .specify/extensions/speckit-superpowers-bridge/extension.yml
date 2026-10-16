@@ -39,6 +39,9 @@ provides:
       description: "Execute Spec Kit tasks through the Superpowers bridge"
       aliases:
         - speckit.superpowers-bridge
+    - name: speckit.speckit-superpowers-bridge.nf
+      file: commands/speckit.speckit-superpowers-bridge.nf.md
+      description: "Execute exactly one phase of Spec Kit tasks through the Superpowers bridge, then stop"
 
 hooks:
   before_clarify:

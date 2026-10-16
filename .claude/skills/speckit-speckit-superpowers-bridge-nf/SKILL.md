@@ -1,0 +1,1 @@
+../../../.specify/extensions/speckit-superpowers-bridge/.specify-dev/agent-commands/claude/speckit-speckit-superpowers-bridge-nf/SKILL.md
