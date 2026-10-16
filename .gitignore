@@ -1,0 +1,16 @@
+# Per-developer bridge runtime state (not shared).
+.specify/superpowers-handoff.json
+.specify/bridge-events.jsonl
+.specify/bridge-snapshots/
+.superpowers/
+
+# Machine-local Spec Kit install state.
+.specify/feature.json
+.specify/init-options.json
+.specify/integration.json
+.specify/integrations/*.manifest.json
+.specify/extensions/.registry
+.specify/extensions/.cache/
+.specify/extensions/*/.specify-dev/
+.specify/workflows/workflow-registry.json
+.specify/scripts/
