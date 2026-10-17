@@ -133,7 +133,12 @@ introduced silently in a feature branch.
 - **LLM transport and client state**: the Vercel AI SDK (`useChat`, `streamObject`, and
   tool calling). Streaming and tool calling MUST go through this SDK rather than a
   hand-rolled fetch/SSE layer.
-- **Model provider**: DeepSeek API (`deepseek-chat`).
+- **Model provider**: OpenRouter, through its OpenAI-compatible endpoint. The model is
+  selected at runtime by configuration (`OPENROUTER_API_KEY`, `OPENROUTER_MODEL`), never
+  hardcoded at a call site. Adding, removing, or swapping the underlying model MUST NOT
+  require a code change or a constitution amendment; it is a configuration change.
+  Model-specific behavior differences (notably tool-calling fidelity) are handled by
+  validation at the boundary, not by branching on the provider.
 - **Rich text / Markdown editor** (right panel): TipTap.
 - **Global state store**: Zustand. It holds the active document text and is the single
   source of truth required by Principle III.
@@ -222,4 +227,4 @@ wins.
 - **Runtime guidance**: Day-to-day implementation guidance lives in the specification
   and plan artifacts for each feature; this document governs, those documents elaborate.
 
-**Version**: 1.2.0 | **Ratified**: 2026-10-17 | **Last Amended**: 2026-10-17
+**Version**: 1.3.0 | **Ratified**: 2026-10-17 | **Last Amended**: 2026-10-17
