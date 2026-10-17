@@ -35,16 +35,16 @@ Single Next.js project per plan.md:
 
 **Purpose**: Project initialization and toolchain. No feature behavior yet.
 
-- [ ] T001 Initialize Next.js 16.4.2 + TypeScript project at repository root with `npm`, App Router enabled, `src/` directory layout, and dependency versions pinned exactly as listed in research.md §Version Baseline
-- [ ] T002 [P] Configure Tailwind CSS for the three-column workspace layout in `src/app/globals.css` and `tailwind.config.ts`
-- [ ] T003 [P] Create `vitest.config.mts` with two named projects: `unit` (jsdom, include `tests/unit/**/*.test.{ts,tsx}` — the brace form is required, since most unit tests are `.ts` and a `.tsx`-only glob silently skips them) and `server` (node, `tests/integration/**/*.test.ts`, `tests/contract/**/*.test.ts`), plus `@vitest/coverage-v8` with per-glob thresholds — global `lines/branches/functions/statements: 80`, `src/lib/domain/**` and `src/stores/**` at `95/90/90/95` with `perFile: true` on each glob explicitly (glob thresholds do not inherit global `perFile`)
-- [ ] T004 [P] Configure Playwright in `playwright.config.ts` with `webServer: { command: 'npm run build && npm run start', url: 'http://localhost:3000', timeout: 120_000 }` and `use: { baseURL, trace: 'on-first-retry' }`
-- [ ] T005 [P] Create `docker-compose.yml` with a PostgreSQL 14+ service on port 5432 for local development
-- [ ] T006 Create `src/env.ts` that validates required environment variables at startup: `OPENROUTER_API_KEY` (required) and `OPENROUTER_MODEL` (required). Missing values MUST throw a clear error naming the missing variable
-- [ ] T007 [P] Write `tests/unit/env.test.ts` covering: both variables present passes; each missing fails with a message naming that variable
-- [ ] T008 Create `db/migrations/0001_initial.sql` defining tables `scripts`, `conversations`, `messages`, `script_versions`, and `styles` per data-model.md, including the case-insensitive title uniqueness constraint on the normalized (lowercased, trimmed) title
-- [ ] T009 [P] Create `db/seed/styles.sql` with the static style catalogue (id, name, description, guidance)
-- [ ] T010 [P] Configure ESLint and Prettier in `eslint.config.mjs` and `.prettierrc` with the project's TypeScript/React rules
+- [x] T001 Initialize Next.js 16.4.2 + TypeScript project at repository root with `npm`, App Router enabled, `src/` directory layout, and dependency versions pinned exactly as listed in research.md §Version Baseline
+- [x] T002 [P] Configure Tailwind CSS for the three-column workspace layout in `src/app/globals.css` and `tailwind.config.ts`
+- [x] T003 [P] Create `vitest.config.mts` with two named projects: `unit` (jsdom, include `tests/unit/**/*.test.{ts,tsx}` — the brace form is required, since most unit tests are `.ts` and a `.tsx`-only glob silently skips them) and `server` (node, `tests/integration/**/*.test.ts`, `tests/contract/**/*.test.ts`), plus `@vitest/coverage-v8` with per-glob thresholds — global `lines/branches/functions/statements: 80`, `src/lib/domain/**` and `src/stores/**` at `95/90/90/95` with `perFile: true` on each glob explicitly (glob thresholds do not inherit global `perFile`)
+- [x] T004 [P] Configure Playwright in `playwright.config.ts` with `webServer: { command: 'npm run build && npm run start', url: 'http://localhost:3000', timeout: 120_000 }` and `use: { baseURL, trace: 'on-first-retry' }`
+- [x] T005 [P] Create `docker-compose.yml` with a PostgreSQL 14+ service on port 5432 for local development
+- [x] T006 Create `src/env.ts` that validates required environment variables at startup: `OPENROUTER_API_KEY` (required) and `OPENROUTER_MODEL` (required). Missing values MUST throw a clear error naming the missing variable
+- [x] T007 [P] Write `tests/unit/env.test.ts` covering: both variables present passes; each missing fails with a message naming that variable
+- [x] T008 Create `db/migrations/0001_initial.sql` defining tables `scripts`, `conversations`, `messages`, `script_versions`, and `styles` per data-model.md, including the case-insensitive title uniqueness constraint on the normalized (lowercased, trimmed) title
+- [x] T009 [P] Create `db/seed/styles.sql` with the static style catalogue (id, name, description, guidance)
+- [x] T010 [P] Configure ESLint and Prettier in `eslint.config.mjs` and `.prettierrc` with the project's TypeScript/React rules
 
 ---
 
@@ -55,17 +55,17 @@ story depends on these.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T011 Define domain types in `src/lib/domain/types.ts`: `Script`, `Style`, `Conversation`, `Message`, `ScriptVersion`, `PendingRevision` per data-model.md, with no framework imports
-- [ ] T012 Write `tests/unit/domain/types.test.ts` asserting the invariants that live in types alone: `Message.role` is restricted to `user | assistant`. Title rules are covered by T028 and T084; style immutability is covered by T070. Do not duplicate those here.
-- [ ] T013 Define repository interfaces in `src/lib/repositories/types.ts` covering scripts (list, create, get, rename, delete, updateContent), conversations (get messages, append), styles (list), and revisions (list, restore). These are the swap boundary required by MVP Scope Boundaries
-- [ ] T014 Create the PostgreSQL pool in `src/lib/repositories/postgres/pool.ts`, cached on `globalThis` so dev-server hot reload does not leak connections
-- [ ] T015 Write `tests/integration/repositories/pool.test.ts` asserting the pool returns the same instance on repeated imports and that an idle client error does not crash the process
-- [ ] T016 Implement `PostgresStyleRepository` in `src/lib/repositories/postgres/style-repository.ts`
-- [ ] T017 Write `tests/integration/repositories/style-repository.test.ts` against a real PostgreSQL via Testcontainers: listing returns the seeded catalogue; nothing in the interface allows create/update/delete. If Testcontainers 12 fails on this machine (Node 22.21.1 is below its 22.22 requirement), switch integration tests to the Compose service and record the switch in research.md
-- [ ] T018 Implement `PostgresScriptRepository.create` in `src/lib/repositories/postgres/script-repository.ts` creating the Script and its Conversation in one transaction
-- [ ] T019 Write `tests/integration/repositories/script-repository.test.ts` covering: create yields exactly one conversation; a duplicate normalized title violates the constraint and raises a distinguishable error; a script with no conversation is never observable
-- [ ] T020 Create `src/lib/ai/provider.ts` constructing the OpenRouter provider with `@openrouter/ai-sdk-provider` and the model slug from configuration. No model name may be hardcoded at a call site
-- [ ] T021 Write `tests/unit/ai/provider.test.ts` asserting the provider reads the model from configuration and that an empty or missing slug fails loudly rather than defaulting
+- [x] T011 Define domain types in `src/lib/domain/types.ts`: `Script`, `Style`, `Conversation`, `Message`, `ScriptVersion`, `PendingRevision` per data-model.md, with no framework imports
+- [x] T012 Write `tests/unit/domain/types.test.ts` asserting the invariants that live in types alone: `Message.role` is restricted to `user | assistant`. Title rules are covered by T028 and T084; style immutability is covered by T070. Do not duplicate those here.
+- [x] T013 Define repository interfaces in `src/lib/repositories/types.ts` covering scripts (list, create, get, rename, delete, updateContent), conversations (get messages, append), styles (list), and revisions (list, restore). These are the swap boundary required by MVP Scope Boundaries
+- [x] T014 Create the PostgreSQL pool in `src/lib/repositories/postgres/pool.ts`, cached on `globalThis` so dev-server hot reload does not leak connections
+- [x] T015 Write `tests/integration/repositories/pool.test.ts` asserting the pool returns the same instance on repeated imports and that an idle client error does not crash the process
+- [x] T016 Implement `PostgresStyleRepository` in `src/lib/repositories/postgres/style-repository.ts`
+- [x] T017 Write `tests/integration/repositories/style-repository.test.ts` against a real PostgreSQL via Testcontainers: listing returns the seeded catalogue; nothing in the interface allows create/update/delete. If Testcontainers 12 fails on this machine (Node 22.21.1 is below its 22.22 requirement), switch integration tests to the Compose service and record the switch in research.md
+- [x] T018 Implement `PostgresScriptRepository.create` in `src/lib/repositories/postgres/script-repository.ts` creating the Script and its Conversation in one transaction
+- [x] T019 Write `tests/integration/repositories/script-repository.test.ts` covering: create yields exactly one conversation; a duplicate normalized title violates the constraint and raises a distinguishable error; a script with no conversation is never observable
+- [x] T020 Create `src/lib/ai/provider.ts` constructing the OpenRouter provider with `@openrouter/ai-sdk-provider` and the model slug from configuration. No model name may be hardcoded at a call site
+- [x] T021 Write `tests/unit/ai/provider.test.ts` asserting the provider reads the model from configuration and that an empty or missing slug fails loudly rather than defaulting
 
 **Checkpoint**: Domain types, repository boundary, pool, and provider exist and are tested.
 

@@ -114,6 +114,13 @@ model never asserts user consent.
 **Decision**: `pg` (node-postgres) with a `Pool` cached on `globalThis`, and plain SQL
 migrations checked into `db/migrations/`.
 
+**Catalogue order (added T016/T017)**: `styles` carries an explicit `display_order`
+column, seeded 10/20/30. spec.md's Assumptions make "the first style in the catalogue" the
+default assigned to a new script, but every row in a single seed `INSERT` shares one
+transaction timestamp, so ordering by `created_at` fell through to the id tiebreak and
+produced alphabetical order. The default therefore depended on alphabetical happenstance
+rather than a content decision. `display_order` makes it explicit and stable across reseeds.
+
 **Rationale**: Constitution forbids speculative abstraction, and an ORM is exactly that for
 this schema. The `globalThis` cache is required because the dev server hot-reloads modules
 and would otherwise leak a pool per reload until Postgres refuses connections.
@@ -140,6 +147,18 @@ multi-second start per file.
 patch below. The container startup MUST be verified on this machine before tasks depend on
 it; if it fails, fall back to a Docker Compose service for integration tests, which has the
 same fidelity.
+
+**Verified 2026-10-17 (T017)**: `@testcontainers/postgresql@12.2.1` starts and stops a
+`postgres:14.24-alpine` container correctly on Node 22.21.1. The engine mismatch is an
+`npm install` warning only — no runtime check blocks it. **The Compose fallback is therefore
+not used**, and integration tests run against Testcontainers with one container per run and
+tables truncated between tests. Cost if wrong: if a future Testcontainers minor adds a real
+runtime guard, integration tests fail loudly at startup rather than silently degrading, and
+the documented fallback stays available.
+
+**Note**: The container's SQL files are applied with `docker exec` into the image's own
+`psql`, so no host `psql` install is assumed. `db/migrations/0001_initial.sql` and
+`db/seed/styles.sql` are applied once per run by the Vitest `server` project's `globalSetup`.
 
 ---
 
