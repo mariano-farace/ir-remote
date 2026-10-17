@@ -13,6 +13,8 @@
 .specify/extensions/.cache/
 .specify/extensions/*/.specify-dev/
 .specify/workflows/workflow-registry.json
+.specify/workflows/.cache/
+.specify/workflows/steps/.cache/
 .specify/scripts/
 
 # Dependencies and build output.
