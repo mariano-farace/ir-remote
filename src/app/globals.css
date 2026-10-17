@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+/*
+ * The workspace is a three-column shell: a fixed-width sidebar, a fixed-width
+ * chat column, and an editor that takes the remaining space. Layout scale is
+ * defined once here so the panels and the shell agree on it.
+ */
+@theme {
+  --color-surface: oklch(0.99 0 0);
+  --color-surface-muted: oklch(0.97 0 0);
+  --color-border-subtle: oklch(0.9 0 0);
+  --color-foreground: oklch(0.2 0 0);
+  --color-foreground-muted: oklch(0.5 0 0);
+  --color-accent: oklch(0.55 0.16 255);
+
+  --spacing-sidebar: 16rem;
+  --spacing-chat: 24rem;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-surface);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  /* The shell that every panel hangs off. */
+  .workspace-grid {
+    display: grid;
+    grid-template-columns: var(--spacing-sidebar) var(--spacing-chat) minmax(0, 1fr);
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .workspace-panel {
+    min-width: 0;
+    overflow-y: auto;
+    border-color: var(--color-border-subtle);
+  }
+}

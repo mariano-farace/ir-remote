@@ -14,3 +14,25 @@
 .specify/extensions/*/.specify-dev/
 .specify/workflows/workflow-registry.json
 .specify/scripts/
+
+# Dependencies and build output.
+node_modules/
+.next/
+out/
+build/
+next-env.d.ts
+*.tsbuildinfo
+
+# Test and tooling artifacts.
+coverage/
+playwright-report/
+test-results/
+
+# Local secrets. .env.example is tracked instead.
+.env
+.env.*
+!.env.example
+
+# Editor and OS noise.
+.DS_Store
+*.log
