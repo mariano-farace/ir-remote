@@ -261,7 +261,7 @@ tone control.
   script MUST NOT be silently truncated.
 - **FR-015**: An AI revision MUST apply only the requested change; unrelated parts of the
   script MUST be preserved unless the user asked for them to change.
-- **FR-015a**: Every AI revision MUST identify the region of the script it intends to
+- **FR-015a**: A *region* is a contiguous span of the script identified by a verbatim quote of its current text (the anchor) or, for a full-document write, the whole document. Every AI revision MUST identify the region of the script it intends to
   change and supply replacement text for that region only. Text outside the identified
   region MUST be left unchanged as a structural consequence, not as an aspiration.
 - **FR-015b**: A revision whose identified region no longer matches the text it was based
@@ -360,12 +360,17 @@ tone control.
 - **Scripts are Markdown documents.** The editor presents a visual, formatted view while
   the underlying document is Markdown. No other export format is in scope for this feature.
 - **A default style may be applied on creation.** Unless the user chooses otherwise, a
-  first script may be created with a sensible default style selected; the user can change
-  it at any time. A title, unlike style, is never defaulted: it is required from the user.
+  newly created script takes the first style in the catalogue as its initial value; the
+  user can change it at any time. Where no style is assigned, an AI request prompts for one
+  before proceeding. A title, unlike style, is never defaulted: it is required from the
+  user.
 - **Retention**: Scripts and conversations are retained until the user deletes them
   (FR-001d); there is no automatic expiry in this feature.
 - **Language**: Interface copy, AI instructions, and all written artifacts are in English,
   as required by the project constitution.
+- **Terminology**: A *script* is the entity listed in the sidebar; a *document* is that
+  script's text, which is what the AI reads and writes. The two are never used to mean
+  different entities, only different aspects of the same one.
 
 ## Out of Scope
 
@@ -374,6 +379,8 @@ tone control.
 - Accounts, authentication, sharing, or collaboration.
 - Real-time concurrent editing by multiple people.
 - Exporting to formats other than Markdown.
-- Using a model provider other than the configured one.
+- Running against a model whose tool-calling support is unverified. The workspace fails
+  closed and reports the error; it does not adapt to models that cannot produce valid
+  revisions.
 - Undelete or a trash/restore bin for deleted scripts. Deletion is permanent after
   confirmation (FR-001d).

@@ -109,21 +109,37 @@ src/
 │       ├── chat/route.ts            # POST streaming chat + tool call
 │       └── styles/route.ts          # GET static style catalogue
 ├── components/
-│   ├── sidebar/                     # script list, new-script button, style selector
-│   ├── chat/                        # message list, prompt input
-│   └── editor/                      # TipTap editor, save indicator, undo affordance
+│   ├── sidebar/
+│   │   ├── Sidebar.tsx              # create button, script list, style selector
+│   │   ├── ScriptList.tsx           # list, delete confirmation, switch-away warning
+│   │   └── StyleSelector.tsx        # single-style assignment
+│   ├── chat/
+│   │   ├── ChatPanel.tsx            # messages, prompt input, stop control, long-script warning
+│   │   └── ErrorBanner.tsx          # distinguishable failure causes
+│   └── editor/
+│       ├── ScriptEditor.tsx         # TipTap editor wired to applyProposal
+│       ├── SaveIndicator.tsx        # saved / saving / retrying / failed
+│       └── UndoControl.tsx          # restore most recent revision
 ├── lib/
 │   ├── domain/
-│   │   ├── script.ts                # domain types and invariants
-│   │   ├── revision.ts              # region matching and apply logic
-│   │   └── style.ts                 # style catalogue type
+│   │   ├── types.ts                 # domain types and invariants
+│   │   ├── title.ts                 # title validation and normalization
+│   │   └── revision.ts              # region matching, apply logic, first-draft and rewrite rules
 │   ├── repositories/
 │   │   ├── types.ts                 # repository interfaces
-│   │   └── postgres/                # Postgres implementations
+│   │   └── postgres/
+│   │       ├── pool.ts              # globalThis-cached connection pool
+│   │       ├── script-repository.ts
+│   │       ├── style-repository.ts
+│   │       └── revision-repository.ts
 │   ├── ai/
+│   │   ├── provider.ts              # OpenRouter provider from configuration
 │   │   ├── prompt.ts                # system prompt construction from a style
-│   │   └── tools.ts                 # tool definitions + Zod schemas
-│   └── validation/
+│   │   └── tools.ts                 # tool definitions, Zod schemas, toolApproval
+│   └── editor/
+│       ├── markdown.ts              # document <-> Markdown boundary
+│       ├── sanitize.ts              # render-boundary sanitization
+│       └── use-autosave.ts          # debounce, single-flight, retries, recovery copy
 ├── stores/
 │   └── document-store.ts            # Zustand store: the single source of truth
 └── env.ts                           # startup validation of required secrets

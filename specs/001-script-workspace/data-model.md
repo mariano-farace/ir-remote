@@ -14,18 +14,21 @@ Style (static, seeded)          Script
    │ 0..1                         │
    └──────────────< belongs to >──┤
                                   │ 1
-                       ┌──────────┴──────────┐
-                       │                     │
-                  Conversation           ScriptVersion
-                       │ 1                   (0..n, ordered)
-                       │
+                       ┌──────────┴──────────┬──────────────────┐
+                       │                     │                  │
+                  Conversation           ScriptVersion   LocalRecoveryCopy
+                       │ 1                   (0..n, ordered)  (0..1, browser-only,
+                       │                                         not persisted)
                   Message (0..n, ordered)
 ```
 
 A Script owns exactly one Conversation and zero or more ScriptVersions. A Style is
 referenced by many Scripts but is not owned by any. PendingRevision is not persisted as an
 entity of its own; it exists transiently in one request and is recorded as the resulting
-ScriptVersion when applied.
+ScriptVersion when applied. LocalRecoveryCopy lives in the browser, not the database.
+
+Deleting a Script removes everything it owns: Conversation, Messages, ScriptVersions, and
+the LocalRecoveryCopy.
 
 ---
 
@@ -166,18 +169,42 @@ payload of one tool call.
 
 ---
 
+## Local Recovery Copy
+
+The last text the user had when a save failed. Held in the browser, not the database, so
+it survives a tab close that the server never heard about.
+
+| Field | Type | Rules |
+|---|---|---|
+| `scriptId` | identifier | Keys the copy. At most one copy per script |
+| `content` | Markdown text | The text as the user last had it |
+| `capturedAt` | timestamp | When the failed save was recorded |
+
+**Invariants**
+
+- A copy is written only after a save has failed all retries (FR-005b), never speculatively.
+- On next open of that script the copy MUST be offered to the user, who either restores it
+  (becoming the document, following the normal write path and revision rules) or discards it.
+- Either outcome deletes the copy. It MUST NOT be offered twice.
+- It MUST NOT be treated as authoritative: if the server's stored content is newer, the
+  user is told before choosing.
+
 ## State Transitions
 
 ### Script lifecycle
 
 ```text
-(none) --create--> Draft (empty content, conversation created, style optional)
+(none) --create--> Draft (empty content, conversation created, style defaulted)
 Draft --first AI draft--> Generated (content non-empty)
 Generated <--AI revision / manual edit--> Revised
 any state --save fails--> SaveFailed (content retained in editor; UI reports failure)
+SaveFailed --all retries exhausted--> LocalRecoveryCopy written
+any state --confirmed delete--> (none)  [script, conversation, messages, revisions, copy]
 ```
 
-There is no Delete transition in this feature.
+Deletion is transactional and total: the script and everything owned by it disappear
+together. No orphaned conversation, message, or revision may remain observable, and no
+part of it is recoverable afterwards (FR-001d).
 
 ### Document content change
 
