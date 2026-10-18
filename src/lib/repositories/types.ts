@@ -38,7 +38,13 @@ import type {
  * a title collision from a missing script without inspecting a driver error.
  */
 export type RepositoryErrorCode =
-  "title_required" | "title_taken" | "unknown_style" | "not_found" | "stale_write";
+  | "title_required"
+  | "title_taken"
+  | "unknown_style"
+  | "not_found"
+  | "stale_write"
+  /** The request carried a value that cannot mean anything, such as a malformed timestamp. */
+  | "invalid_request";
 
 export class RepositoryError extends Error {
   readonly code: RepositoryErrorCode;
@@ -76,9 +82,16 @@ export interface ContentWriteResult {
   readonly updatedAt: IsoTimestamp;
 }
 
+/** What a restore produces: the document it put back, and the `updatedAt` to echo next time. */
+export interface RestoreResult extends ContentWriteResult {
+  readonly content: string;
+}
+
 /**
- * The script operations the foundational layer provides: the ones every user
- * story needs before it can start.
+ * The script operations every user story needs, including the content write
+ * (available from US2 onward). `updateContent` lives here rather than only in
+ * {@link ScriptMutationRepository} because it is the write path autosave and
+ * revision restore share; see {@link RevisionRepository.restore}.
  */
 export interface ScriptRepository {
   /** Every script, ordered by `updatedAt` descending (FR-002). Content is not included. */
@@ -96,16 +109,30 @@ export interface ScriptRepository {
 
   /** Loads one script with its content. @throws {RepositoryError} `not_found`. */
   get(id: ScriptId): Promise<Script>;
+
+  /**
+   * Replaces the document text, writing the prior content as a ScriptVersion
+   * first and refusing a write based on a stale `baseUpdatedAt` (FR-019,
+   * FR-020). The version and the content land in one transaction: a write that
+   * cannot record its history must fail rather than succeed without it.
+   *
+   * @throws {RepositoryError} `not_found`, `stale_write`.
+   */
+  updateContent(
+    id: ScriptId,
+    content: string,
+    baseUpdatedAt: IsoTimestamp,
+    origin: RevisionOrigin,
+  ): Promise<ContentWriteResult>;
 }
 
 /**
- * The operations the user stories add, each behind its own test:
- * `updateContent` (T049, US2), `rename` (T067) and `delete` (T068, US3),
- * `assignStyle` (T074, US4).
+ * The script's mutations that are neither creation nor a document write:
+ * `rename` (T067, US3) and `assignStyle` (T074, US4).
  *
- * Declared here so the shape is agreed up front and the swap boundary is one
- * interface; kept apart from {@link ScriptRepository} so the implementation that
- * exists today is complete rather than a class with unimplemented members.
+ * Kept apart from {@link ScriptRepository} because it is not itself a member of
+ * {@link Repositories}: an operation joins the swap boundary with the tests that
+ * prove it, never ahead of them.
  */
 export interface ScriptMutationRepository {
   /**
@@ -116,21 +143,14 @@ export interface ScriptMutationRepository {
    */
   rename(id: ScriptId, title: string): Promise<ScriptSummary>;
 
-  /** Deletes the script with everything it owns, transactionally (FR-001d). */
-  delete(id: ScriptId): Promise<void>;
-
   /**
-   * Replaces the document text, writing the prior content as a ScriptVersion
-   * first and refusing a write based on a stale `baseUpdatedAt` (FR-019).
+   * Deletes the script with everything it owns, transactionally (FR-001d).
+   * The conversation, its messages, and the version history cascade from the
+   * script row, so a deleted script leaves nothing observable behind.
    *
-   * @throws {RepositoryError} `not_found`, `stale_write`.
+   * @throws {RepositoryError} `not_found`.
    */
-  updateContent(
-    id: ScriptId,
-    content: string,
-    baseUpdatedAt: IsoTimestamp,
-    origin: RevisionOrigin,
-  ): Promise<ContentWriteResult>;
+  delete(id: ScriptId): Promise<void>;
 
   /**
    * Assigns or replaces the single style (FR-009). The read-only catalogue
@@ -184,19 +204,26 @@ export interface RevisionRepository {
   /**
    * Restores a prior version by replacing the document's content with it. The
    * content being replaced is itself recorded as a new version first, so the
-   * restore is undoable (FR-020).
+   * restore is undoable (FR-020). The restore takes no `baseUpdatedAt`: the
+   * version was chosen by the user from the history that the current content
+   * produced, and there is no client document to reconcile against.
    *
    * @throws {RepositoryError} `not_found` for an unknown script or version.
    */
-  restore(scriptId: ScriptId, versionId: ScriptVersionId): Promise<ContentWriteResult>;
+  restore(scriptId: ScriptId, versionId: ScriptVersionId): Promise<RestoreResult>;
 
   /** A single version with its full content, for tests and diagnostics. */
   get(scriptId: ScriptId, versionId: ScriptVersionId): Promise<ScriptVersion>;
 }
 
-/** Everything a route handler or a store needs, resolved from one place. */
+/**
+ * Everything a route handler or a store needs, resolved from one place.
+ *
+ * A field is added when its implementation and tests exist, never ahead of them.
+ */
 export interface Repositories {
-  readonly scripts: ScriptRepository;
+  readonly scripts: ScriptRepository &
+    Pick<ScriptMutationRepository, "delete" | "rename" | "assignStyle">;
   readonly conversations: ConversationRepository;
   readonly styles: StyleRepository;
   readonly revisions: RevisionRepository;

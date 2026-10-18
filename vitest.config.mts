@@ -56,11 +56,28 @@ export default defineConfig({
       include: ["src/**/*.{ts,tsx}"],
       // Every exclusion is declared here rather than left implicit (Principle II).
       //   *.d.ts             type-only, no runtime code to cover
+      //   src/lib/domain/types.ts
+      //                      type aliases, interfaces, and doc comments only:
+      //                      the module emits no runtime code (its invariants
+      //                      are asserted through the modules that use it).
+      //                      The domain floor itself still applies per file.
+      //   src/lib/repositories/types.ts
+      //                      interfaces plus a bare Error subclass; the only
+      //                      executable line is an error-code mapping, and the
+      //                      behaviour behind it is covered through the
+      //                      repositories. No decision logic lives here.
       //   src/app/**         Next.js App Router entry points (pages, layouts,
-      //                      route handlers). Vitest cannot render async Server
-      //                      Components; these are covered by Playwright, which
-      //                      plan.md names as the E2E and async-component runner.
-      exclude: ["src/**/*.d.ts", "src/app/**"],
+      //                      route handlers) and the React panels they render.
+      //                      Vitest cannot render async Server Components, and
+      //                      the panels' behaviour is covered end to end by
+      //                      Playwright, which plan.md names as the E2E and
+      //                      async-component runner.
+      exclude: [
+        "src/**/*.d.ts",
+        "src/lib/domain/types.ts",
+        "src/lib/repositories/types.ts",
+        "src/app/**",
+      ],
       thresholds: {
         lines: 80,
         branches: 80,

@@ -22,9 +22,24 @@ this command never runs every pending task in a single pass.
 5. Derive a disposable Superpowers adapter scoped to the selected phase only,
    and execute that adapter with Superpowers implementation discipline: TDD
    before each code-modifying task and systematic debugging on any failure.
-6. Mark the phase's task checkboxes as they pass, leave the handoff in
-   `executing`, and stop. If the Spec Kit contract is wrong or incomplete, stop
-   and set handoff status to `blocked`.
+
+   **Execute the phase's tasks in file order** — top to bottom as they appear
+   in `tasks.md`. Take the first unchecked task in the phase, finish it, then
+   move to the next one down. Do not sort by ID, do not reorder by perceived
+   dependency, do not batch several tasks together, and do not start a later
+   task while an earlier one is still open. The file order is the intended
+   build order: when a task was moved to sit after the one it depends on, its
+   ID no longer matches its position, and that is deliberate.
+
+   **Check off each task the moment it passes**, before starting the next one.
+   A task passes only when its own verification succeeds (for test tasks: the
+   test exists and runs; for implementation tasks: its tests are green). Never
+   defer the checkboxes to the end of the phase, and never check a task whose
+   verification has not run. If a task cannot be completed, stop there and
+   leave it unchecked rather than continuing past it.
+
+6. Leave the handoff in `executing` and stop. If the Spec Kit contract is wrong
+   or incomplete, stop and set handoff status to `blocked`.
 
 ## Execution
 

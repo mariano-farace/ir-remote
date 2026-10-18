@@ -2,17 +2,19 @@
  * The PostgreSQL script repository.
  *
  * A Script and its Conversation are created in one transaction: a script with
- * no conversation must never be observable (FR-001). The remaining operations
- * arrive with the user stories that need them, each preceded by its own test —
- * `updateContent` with T049 (US2), `rename` with T067 and `delete` with T068
- * (US3), `assignStyle` with T074 (US4). Implementing them here ahead of those
- * tests would put untested behavior on the single write path the constitution
- * governs.
+ * no conversation must never be observable (FR-001). `updateContent` writes the
+ * prior content as a revision in the same transaction as the new content
+ * (FR-020). Deleting is a single statement whose cascade removes everything the
+ * script owns (FR-001d). Renaming re-uses the creation-time title rules, so the
+ * two cannot drift (FR-001c). `assignStyle` replaces the single style
+ * association in one column, so a script can never hold two (FR-009), and a
+ * style id outside the catalogue is refused rather than stored (FR-008).
  */
 
 import { checkTitle } from "@/lib/domain/title";
 import type {
   IsoTimestamp,
+  RevisionOrigin,
   Script,
   ScriptId,
   ScriptSummary,
@@ -20,12 +22,15 @@ import type {
 } from "@/lib/domain/types";
 import {
   RepositoryError,
+  type ContentWriteResult,
   type CreatedScript,
   type NewScript,
+  type ScriptMutationRepository,
   type ScriptRepository,
 } from "@/lib/repositories/types";
 
 import { getPool } from "./pool";
+import { writeContentInTransaction } from "./revision-write";
 import { toIso } from "./rows";
 
 interface ScriptRow {
@@ -78,7 +83,11 @@ function toSummary(row: ScriptRow): ScriptSummary {
   };
 }
 
-export class PostgresScriptRepository implements ScriptRepository {
+export class PostgresScriptRepository
+  implements
+    ScriptRepository,
+    Pick<ScriptMutationRepository, "delete" | "rename" | "assignStyle">
+{
   async list(): Promise<readonly ScriptSummary[]> {
     const result = await getPool().query<ScriptRow>(
       `SELECT ${SCRIPT_COLUMNS} FROM scripts ORDER BY updated_at DESC, id DESC`,
@@ -139,12 +148,23 @@ export class PostgresScriptRepository implements ScriptRepository {
 
       await client.query("COMMIT");
 
+      // The timestamp is narrowed to the millisecond the application reports
+      // (`toIso`) *before* it is built into the response, so no client ever
+      // holds a timestamp it cannot echo back exactly. Every later write
+      // stamps `updated_at` at the same precision (revision-write.ts), so the
+      // `baseUpdatedAt` precondition compares like with like. `created_at` is
+      // immutable and not handed to anyone yet, so the narrowing loses nothing.
+      row.created_at = toIso(row.created_at);
+
       return {
         script: toScript(row),
         conversation: {
           id: conversationRow.id,
           scriptId: row.id,
-          createdAt: toIso(conversationRow.created_at),
+          // The same millisecond `row.created_at` now holds: both rows were
+          // inserted in one transaction, and which of the two a caller reads
+          // as the script's timestamp must not depend on that.
+          createdAt: toIso(row.created_at),
         },
       };
     } catch (error) {
@@ -184,6 +204,187 @@ export class PostgresScriptRepository implements ScriptRepository {
     }
 
     return toScript(row);
+  }
+
+  async updateContent(
+    id: ScriptId,
+    content: string,
+    baseUpdatedAt: IsoTimestamp,
+    origin: RevisionOrigin,
+  ): Promise<ContentWriteResult> {
+    const client = await getPool().connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const written = await writeContentInTransaction(
+        client,
+        id,
+        content,
+        origin,
+        baseUpdatedAt,
+      );
+
+      await client.query("COMMIT");
+
+      return written;
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {
+        // The original failure is the one worth reporting.
+      });
+
+      // A malformed id never finds its row, and the caller's contract maps it
+      // onto the same not-found response (see `get`).
+      if (pgErrorCode(error) === INVALID_TEXT_REPRESENTATION) {
+        throw new RepositoryError("not_found", `No script exists with id "${id}"`);
+      }
+
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Renames a script under the rules creation uses (FR-001c, FR-001b).
+   *
+   * The title is checked in application code before the statement so a blank
+   * or over-long title is reported as `title_required` rather than as the
+   * unique violation the database would raise for the all-blank-normalized
+   * case; the unique index remains the authority on duplicates, so a race
+   * cannot produce two identically titled scripts.
+   */
+  async rename(id: ScriptId, title: string): Promise<ScriptSummary> {
+    const check = checkTitle(title);
+
+    if (!check.valid) {
+      throw new RepositoryError(
+        "title_required",
+        check.rule === "blank"
+          ? "A script title is required"
+          : "A script title must be at most 200 characters",
+      );
+    }
+
+    let row: ScriptRow | undefined;
+
+    try {
+      const result = await getPool().query<ScriptRow>(
+        `UPDATE scripts SET title = $2 WHERE id = $1
+         RETURNING ${SCRIPT_COLUMNS}`,
+        [id, check.title],
+      );
+
+      row = result.rows[0];
+    } catch (error) {
+      const code = pgErrorCode(error);
+
+      if (code === UNIQUE_VIOLATION) {
+        throw new RepositoryError(
+          "title_taken",
+          `A script titled "${check.title}" already exists`,
+        );
+      }
+
+      if (code === INVALID_TEXT_REPRESENTATION) {
+        throw new RepositoryError("not_found", `No script exists with id "${id}"`);
+      }
+
+      throw error;
+    }
+
+    // A rename that only changes case of the script's own title still matches
+    // its own row and returns it; a missing row is an unknown script.
+    if (!row) {
+      throw new RepositoryError("not_found", `No script exists with id "${id}"`);
+    }
+
+    return toSummary(row);
+  }
+
+  /**
+   * Deletes the script and everything that cascades from it (FR-001d).
+   *
+   * One statement is its own transaction: PostgreSQL removes the script, its
+   * conversation, that conversation's messages, and its versions together, or
+   * none of them. A separate `BEGIN`/`COMMIT` would add nothing to that.
+   */
+  async delete(id: ScriptId): Promise<void> {
+    let rowCount: number | null;
+
+    try {
+      const result = await getPool().query("DELETE FROM scripts WHERE id = $1", [id]);
+
+      rowCount = result.rowCount;
+    } catch (error) {
+      // A malformed id cannot name a script; the contract maps it onto the same
+      // not-found response as an unknown one.
+      if (pgErrorCode(error) === INVALID_TEXT_REPRESENTATION) {
+        throw new RepositoryError("not_found", `No script exists with id "${id}"`);
+      }
+
+      throw error;
+    }
+
+    if (rowCount !== 1) {
+      throw new RepositoryError("not_found", `No script exists with id "${id}"`);
+    }
+  }
+
+  /**
+   * Assigns or replaces the script's single style (FR-009).
+   *
+   * A `UPDATE ... SET style_id` is a replacement by construction: there is one
+   * column, so a second association cannot exist. The catalogue is checked
+   * first so an unknown id is reported as `unknown_style`, as creation does,
+   * rather than as the foreign-key violation it would surface as later.
+   * `updated_at` is deliberately left alone: reordering the library by
+   * "last modified" (FR-002) is about the document and its title, not the
+   * register it is written in.
+   */
+  async assignStyle(
+    id: ScriptId,
+    styleId: StyleId,
+  ): Promise<{ readonly styleId: StyleId }> {
+    const client = await getPool().connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const style = await client.query("SELECT id FROM styles WHERE id = $1", [styleId]);
+
+      if (style.rowCount !== 1) {
+        throw new RepositoryError(
+          "unknown_style",
+          `No style exists with id "${styleId}"`,
+        );
+      }
+
+      const updated = await client.query(
+        "UPDATE scripts SET style_id = $2 WHERE id = $1 RETURNING id",
+        [id, styleId],
+      );
+
+      if (updated.rowCount !== 1) {
+        throw new RepositoryError("not_found", `No script exists with id "${id}"`);
+      }
+
+      await client.query("COMMIT");
+
+      return { styleId };
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {
+        // The original failure is the one worth reporting.
+      });
+
+      if (pgErrorCode(error) === INVALID_TEXT_REPRESENTATION) {
+        throw new RepositoryError("not_found", `No script exists with id "${id}"`);
+      }
+
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 

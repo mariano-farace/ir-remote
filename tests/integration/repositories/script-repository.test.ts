@@ -231,3 +231,117 @@ describe("PostgresScriptRepository.create", () => {
     }
   });
 });
+
+/**
+ * The write paths the sidebar's library actions reach (FR-001b, FR-001c,
+ * FR-001d, FR-009). Each translates the database's answer into the
+ * repository vocabulary, and nothing else: an unknown or malformed id is
+ * `not_found`, a blank or over-long rename is `title_required`, and any other
+ * failure is passed through rather than relabelled.
+ */
+describe("PostgresScriptRepository writes beyond creation", () => {
+  async function create(title: string) {
+    return (await repository.create({ title, styleId: null })).script;
+  }
+
+  it("renames a script under the same title rules as creation", async () => {
+    const script = await create("Salt Roads");
+
+    await expect(
+      repository.rename(script.id, "  Lantern Roads  "),
+    ).resolves.toMatchObject({
+      id: script.id,
+      title: "Lantern Roads",
+    });
+
+    await expect(repository.rename(script.id, "   ")).rejects.toMatchObject({
+      code: "title_required",
+    });
+    await expect(repository.rename(script.id, "x".repeat(201))).rejects.toMatchObject({
+      code: "title_required",
+    });
+  });
+
+  it("refuses a rename onto another script's title, and reports a malformed id as not found", async () => {
+    const first = await create("Salt Roads");
+    await create("Kodak Years");
+
+    await expect(repository.rename(first.id, "kodak years")).rejects.toMatchObject({
+      code: "title_taken",
+    });
+    await expect(repository.rename("not-a-uuid", "New Title")).rejects.toMatchObject({
+      code: "not_found",
+    });
+    await expect(
+      repository.rename("00000000-0000-4000-8000-000000000000", "New Title"),
+    ).rejects.toMatchObject({ code: "not_found" });
+  });
+
+  it("deletes a script, reporting an unknown or malformed id as not found", async () => {
+    const script = await create("Salt Roads");
+
+    await expect(repository.delete(script.id)).resolves.toBeUndefined();
+    await expect(repository.get(script.id)).rejects.toMatchObject({ code: "not_found" });
+
+    await expect(repository.delete(script.id)).rejects.toMatchObject({
+      code: "not_found",
+    });
+    await expect(repository.delete("not-a-uuid")).rejects.toMatchObject({
+      code: "not_found",
+    });
+  });
+
+  it("assigns one style, reporting an unknown script or style as not found", async () => {
+    const script = await create("Salt Roads");
+    const styleId = await firstStyleId();
+
+    await expect(repository.assignStyle(script.id, styleId)).resolves.toEqual({
+      styleId: styleId,
+    });
+    await expect(repository.assignStyle("not-a-uuid", styleId)).rejects.toMatchObject({
+      code: "not_found",
+    });
+    await expect(
+      repository.assignStyle("00000000-0000-4000-8000-000000000000", styleId),
+    ).rejects.toMatchObject({ code: "not_found" });
+    await expect(
+      repository.assignStyle(script.id, "00000000-0000-4000-8000-000000000000"),
+    ).rejects.toMatchObject({ code: "unknown_style" });
+  });
+
+  it("maps a malformed id to not_found on every other write, not to a server fault", async () => {
+    const script = await create("Salt Roads");
+
+    await expect(
+      repository.updateContent("not-a-uuid", "Text.", script.updatedAt, "user"),
+    ).rejects.toMatchObject({ code: "not_found" });
+    await expect(repository.get("not-a-uuid")).rejects.toMatchObject({
+      code: "not_found",
+    });
+  });
+
+  it("passes a database failure through every write rather than mislabelling it", async () => {
+    const script = await create("Salt Roads");
+    const styleId = await firstStyleId();
+
+    await getTestPool().query("ALTER TABLE scripts RENAME TO scripts_offline");
+
+    try {
+      // Thunks, not promises: each call starts only when it is awaited, so an
+      // early rejection can never go unobserved while a later one runs.
+      for (const attempt of [
+        () => repository.rename(script.id, "New Title"),
+        () => repository.delete(script.id),
+        () => repository.assignStyle(script.id, styleId),
+        () => repository.updateContent(script.id, "Text.", script.updatedAt, "user"),
+      ]) {
+        const failure = await attempt().catch((error: unknown) => error);
+
+        expect(failure).toBeInstanceOf(Error);
+        expect(failure).not.toBeInstanceOf(RepositoryError);
+      }
+    } finally {
+      await getTestPool().query("ALTER TABLE scripts_offline RENAME TO scripts");
+    }
+  });
+});

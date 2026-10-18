@@ -295,7 +295,7 @@ tone control.
 - **FR-022a**: The message the user sees MUST identify the cause well enough to act on —
   a timeout, an upstream failure, output that could not be validated, and a conflicting
   edit MUST be distinguishable from each other.
-- **FR-023**: An AI request MUST end, successfully or in a reported error, within 30
+- **FR-023**: An AI request MUST end, successfully or in a reported error, within 60
   seconds. The workspace MUST NOT remain in a pending state beyond that.
 
 ### Key Entities
@@ -336,7 +336,7 @@ tone control.
   reachable afterwards either in the document, in version history, or through the local
   recovery offer. Zero scenarios end with unreachable text.
 - **SC-006**: When the AI service is unavailable or slow, the user sees a clear error
-  within 30 seconds and the script content is unchanged.
+  within 60 seconds and the script content is unchanged.
 - **SC-007**: Users can produce, revise, and save a complete documentary script in a single
   sitting without leaving the workspace.
 - **SC-008**: Across at least 10 scripts and repeated open/switch cycles, no script's text

@@ -1,13 +1,24 @@
+import { ChatPanel } from "@/components/chat/ChatPanel";
+import { ScriptEditor } from "@/components/editor/ScriptEditor";
+import { Sidebar } from "@/components/sidebar/Sidebar";
+import { WorkspaceProvider } from "@/components/workspace/useWorkspace";
+
 /**
- * The three-panel workspace shell. Phase 1 provides the layout regions only;
- * the sidebar, chat, and editor panels are filled in by their own tasks.
+ * The three-panel workspace shell (T036).
+ *
+ * The panels are landmarks in their own right — `navigation` for the script
+ * library, `region` for the conversation, `main` for the editor — and the
+ * grid in `globals.css` places them. The shell holds no state of its own: the
+ * document lives in `src/stores/document-store.ts` (Principle III).
  */
-export default function Home() {
+export default function Workspace() {
   return (
-    <div className="workspace-grid">
-      <aside className="workspace-panel border-r" aria-label="Scripts" />
-      <section className="workspace-panel border-r" aria-label="Conversation" />
-      <main className="workspace-panel" aria-label="Editor" />
-    </div>
+    <WorkspaceProvider>
+      <div className="workspace-grid">
+        <Sidebar />
+        <ChatPanel />
+        <ScriptEditor />
+      </div>
+    </WorkspaceProvider>
   );
 }

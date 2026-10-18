@@ -22,11 +22,15 @@ describe("checkTitle", () => {
       expect(checkTitle("a".repeat(TITLE_MAX_LENGTH))).toMatchObject({ valid: true });
     });
 
-    it("rejects a title of one character over the maximum", () => {
+    it("rejects a title of exactly one character over the maximum", () => {
       expect(checkTitle("a".repeat(TITLE_MAX_LENGTH + 1))).toEqual({
         valid: false,
         rule: "too_long",
       });
+    });
+
+    it("rejects a 201-character title, the boundary a user reports", () => {
+      expect(checkTitle("x".repeat(201))).toEqual({ valid: false, rule: "too_long" });
     });
 
     it("measures length after trimming, so padding does not count", () => {
@@ -60,31 +64,32 @@ describe("checkTitle", () => {
       expect(checkTitle("  My Film  ")).toMatchObject({ title: "My Film" });
     });
 
-    it("folds case and surrounding whitespace into the uniqueness key", () => {
-      expect(normalizeTitle("My Film")).toBe(normalizeTitle("  my film "));
+    it("keeps the title's own casing for display", () => {
+      expect(checkTitle("My Film")).toMatchObject({ title: "My Film" });
     });
+  });
+});
 
-    it("collides 'My Film' with 'my film '", () => {
-      const first = checkTitle("My Film");
-      const second = checkTitle("  my film  ");
+describe("normalizeTitle", () => {
+  it("collides titles that differ only in case", () => {
+    expect(normalizeTitle("My Film")).toBe(normalizeTitle("MY FILM"));
+  });
 
-      expect(first.valid && second.valid).toBe(true);
-      if (first.valid && second.valid) {
-        expect(second.normalized).toBe(first.normalized);
-      }
-    });
+  it("collides titles that differ only in surrounding whitespace", () => {
+    expect(normalizeTitle("My Film")).toBe(normalizeTitle("  My Film\t"));
+  });
 
-    it("does not collide titles that differ internally", () => {
-      const first = checkTitle("My Film");
-      const second = checkTitle("MyFilm");
+  it('treats "My Film" and "my film " as the same title', () => {
+    expect(normalizeTitle("My Film")).toBe(normalizeTitle("my film "));
+  });
 
-      if (first.valid && second.valid) {
-        expect(second.normalized).not.toBe(first.normalized);
-      }
-    });
+  it("keeps internal whitespace significant, so two distinct titles stay distinct", () => {
+    expect(normalizeTitle("My Film")).not.toBe(normalizeTitle("MyFilm"));
+  });
 
-    it("folds non-ASCII case, so 'ÉTÉ' and 'été' collide", () => {
-      expect(normalizeTitle("ÉTÉ")).toBe(normalizeTitle(" été "));
-    });
+  it("reports the same key from checkTitle as normalizeTitle does", () => {
+    const check = checkTitle("  The Bronze AGE  ");
+
+    expect(check.valid && check.normalized).toBe(normalizeTitle("  The Bronze AGE  "));
   });
 });

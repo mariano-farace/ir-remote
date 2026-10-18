@@ -72,7 +72,7 @@ CREATE TABLE conversations (
 );
 
 -- ---------------------------------------------------------------------------
--- messages: the conversation history, ordered by (created_at, id).
+-- messages: the conversation history, ordered by (created_at, seq).
 -- ---------------------------------------------------------------------------
 CREATE TABLE messages (
   id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -84,9 +84,13 @@ CREATE TABLE messages (
   CONSTRAINT messages_role_valid CHECK (role IN ('user', 'assistant'))
 );
 
--- Messages created in the same millisecond keep a stable order via the id tiebreak.
+-- Messages created in the same millisecond keep their insertion order. `id` is a
+-- random UUID, so it cannot serve as the tiebreak (it would scramble a seeded
+-- conversation); the generated BIGSERIAL `seq` can.
+ALTER TABLE messages ADD COLUMN seq BIGSERIAL NOT NULL;
+
 CREATE INDEX messages_conversation_order_idx
-  ON messages (conversation_id, created_at, id);
+  ON messages (conversation_id, created_at, seq);
 
 -- ---------------------------------------------------------------------------
 -- script_versions: recoverable prior states. Immutable once written.
