@@ -309,8 +309,8 @@ the intent and the contract agree. The existing integration test only ever exerc
 non-responding upstream; it does not prove the slow-but-succeeding case, which is why the
 defect went unseen. The fix is verified end to end: V1 (a real first draft) passes in ~30 s.
 
-- [ ] T100 [P] Write a test asserting an AI request whose upstream *is* producing output but runs past 30 s is not aborted, and that a request which never produces output is still reported as a timeout within the bound — the slow-but-succeeding case the 30 s timer destroyed and that no current test covers (SC-006, FR-023, Principle IV)
-- [ ] T101 Confirm the request bound in `src/app/api/chat/route.ts` is 60 s and that the timeout message reads "within 60 seconds", matching the updated FR-023 and SC-006; adjust `tests/integration/api/chat-timeout.test.ts`, `tests/integration/api/error-causes.test.ts`, `tests/e2e/failures.spec.ts`, and `tests/e2e/first-draft.spec.ts` if any assertion still names 30 s
+- [x] T100 [P] Write a test asserting an AI request whose upstream *is* producing output but runs past 30 s is not aborted, and that a request which never produces output is still reported as a timeout within the bound — the slow-but-succeeding case the 30 s timer destroyed and that no current test covers (SC-006, FR-023, Principle IV)
+- [x] T101 Confirm the request bound in `src/app/api/chat/route.ts` is 60 s and that the timeout message reads "within 60 seconds", matching the updated FR-023 and SC-006; adjust `tests/integration/api/chat-timeout.test.ts`, `tests/integration/api/error-causes.test.ts`, `tests/e2e/failures.spec.ts`, and `tests/e2e/first-draft.spec.ts` if any assertion still names 30 s
 
 ### Finding C2 — "the assistant produced no change" was shown alongside a timeout or failure (HIGH)
 
@@ -322,12 +322,12 @@ produce a change; the request failed or ran out of time. FR-022a requires the me
 identify the cause well enough to act on. The flag is now held back when the turn carries a
 reported error, so a failed turn shows its own cause alone. The fix has unit coverage.
 
-- [ ] T102 [P] Write `tests/unit/components/use-conversation.test.tsx` cases asserting `producedNoChange` is false when the turn ended in a timeout or an upstream failure, and still true when a turn genuinely applied nothing with no error reported (FR-022, FR-022a)
-- [ ] T103 Confirm `producedNoChange` in `src/components/workspace/useConversation.ts` is gated on the turn having ended without a reported error, so a timeout or failure shows only its own message and the two are never shown together (FR-022a)
+- [x] T102 [P] Write `tests/unit/components/use-conversation.test.tsx` cases asserting `producedNoChange` is false when the turn ended in a timeout or an upstream failure, and still true when a turn genuinely applied nothing with no error reported (FR-022, FR-022a)
+- [x] T103 Confirm `producedNoChange` in `src/components/workspace/useConversation.ts` is gated on the turn having ended without a reported error, so a timeout or failure shows only its own message and the two are never shown together (FR-022a)
 
 ### Convergence summary
 
-- **CRITICAL**: C1 — the 30 s bound cut off slow-but-successful drafts (SC-006, FR-023). Fixed and verified end to end; the bound is now 60 s and the slow-but-succeeding case still needs its own test (T100).
+- **CRITICAL**: C1 — the 30 s bound cut off slow-but-successful drafts (SC-006, FR-023). Fixed and verified end to end; the bound is now 60 s, and T100 now proves both halves — a turn past 30 s that finishes within 60 s is answered, and a silent upstream is still reported as a timeout within the bound.
 - **HIGH**: C2 — "produced no change" shown beside a timeout/failure message (FR-022a). Fixed with unit coverage; T102/T103 confirm it.
 - **Verified sound, no task raised**: the single write path (Principle III), version capture and the anti-clear guard, title uniqueness and validation, region-addressed revisions and the stale-region refusal, the read-only style catalogue and style-prompt secrecy, deletion being transactional and total, recovery-copy behaviour, and the untrusted-output validation boundary (Principle IV).
 - **Out of scope for this run**: the E2E scenarios V4, V7, and V8 are marked `.skip` in `tests/e2e/failures.spec.ts` by the file's own design — they need a stubbed upstream that a plain Playwright run does not wire, and each has dedicated unit coverage (`tool-approval.test.ts`, `clear-confirmation-answers.test.tsx`, `recovery-copy.test.ts`, `recovery-offer.test.tsx`). This is a documented coverage decision, not an unmet requirement.
